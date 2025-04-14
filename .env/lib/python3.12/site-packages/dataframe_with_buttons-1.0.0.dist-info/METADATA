@@ -1,0 +1,61 @@
+Metadata-Version: 2.4
+Name: dataframe_with_buttons
+Version: 1.0.0
+Summary: Display Dataframe with buttons
+Home-page: 
+Author: Rishabh Jain
+Author-email: rishabh_jain@hakkoda.io
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: streamlit>=0.63
+Requires-Dist: pandas
+Provides-Extra: devel
+Requires-Dist: wheel; extra == "devel"
+Requires-Dist: pytest==7.4.0; extra == "devel"
+Requires-Dist: playwright==1.48.0; extra == "devel"
+Requires-Dist: requests==2.31.0; extra == "devel"
+Requires-Dist: pytest-playwright-snapshot==1.0; extra == "devel"
+Requires-Dist: pytest-rerunfailures==12.0; extra == "devel"
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Dataframe with button
+
+Streamlit component that allows you to display Dataframe with a button
+
+## Installation instructions
+
+```sh
+pip install dataframe_with_buttons
+```
+
+## Usage instructions
+
+```python
+import streamlit as st
+import pandas as pd
+from dataframe_with_button import static_dataframe
+from dataframe_with_button import editable_dataframe
+import json
+df = pd.DataFrame({
+    "BATCH_ID": ["item1", "item2", "item3"],
+    "Name": ["Apple", "Banana", "Cherry"],
+    "Price": [1.2, 0.8, 2.5],
+    "IN_STOCK": [True, False, True],
+    "EMAIL": ["abc@gmail.com", "cde@k.com", "abc@gmail.com"]
+})
+
+df["EMAIL"] = pd.Categorical(df["EMAIL"], categories=["abc@gmail.com", "cde@k.com"])
+result = static_dataframe(df, clickable_column="BATCH_ID")
+result2 = editable_dataframe(df, clickable_column="BATCH_ID")
+```
+<img width="790" alt="Screenshot 2025-01-03 at 10 35 48 PM" src="https://github.com/user-attachments/assets/6581bf69-04f7-4f39-aaed-412d11417cf5" />
+
