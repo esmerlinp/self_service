@@ -36,27 +36,25 @@ cookies = EncryptedCookieManager(
     password="Hol@12340000"  # Cambia esto por una contraseña segura
 )
 
-if not 'is_auth' in st.session_state:
 
-
-    if not cookies.ready():
-        # Wait for the component to load and send us current cookies.
-        st.spinner()
-        st.stop()
+if not cookies.ready():
+    # Wait for the component to load and send us current cookies.
+    st.spinner()
+    st.stop()
 
 
 
-    # # Inicializar el estado de autenticación
-    st.session_state.is_auth = cookies.get("is_auth", str(False))
+# # Inicializar el estado de autenticación
+st.session_state.is_auth = cookies.get("is_auth", str(False))
 
-    # Intentar recuperar los datos del usuario desde las cookies
+# Intentar recuperar los datos del usuario desde las cookies
 
-    if "user" not in st.session_state and st.session_state.is_auth == str(True):
-        try:
-            st.session_state.user = json.loads(cookies.get("user", "{}"))
-        except (json.JSONDecodeError, TypeError):
-            st.session_state.user = None
-            st.session_state.is_auth = False
+if "user" not in st.session_state and st.session_state.is_auth == str(True):
+    try:
+        st.session_state.user = json.loads(cookies.get("user", "{}"))
+    except (json.JSONDecodeError, TypeError):
+        st.session_state.user = None
+        st.session_state.is_auth = False
 
 
 # # Si el usuario no está autenticado, redirigir a la página de login
