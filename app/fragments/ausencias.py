@@ -3,12 +3,9 @@ import streamlit as st
 from app.util import calcular_dias_laborales
 from app.core import Core
 import datetime
-#import locale
+
 import time as t
 import base64
-
-# Establecer el idioma en español
-#locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')  # Para sistemas basados en Unix
 
 
 db = Core()

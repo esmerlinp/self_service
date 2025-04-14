@@ -1,8 +1,6 @@
 import streamlit as st
-from app.util import calcular_dias_laborales
 from app.core import Core
 import datetime
-# import locale
 import app
 from streamlit_extras.dataframe_explorer import dataframe_explorer
 import pandas as pd
@@ -10,9 +8,6 @@ import pandas as pd
 # from dataframe_with_button import static_dataframe
 # from dataframe_with_button import editable_dataframe
 from streamlit_avatar import avatar
-
-# Establecer el idioma en español
-#locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')  # Para sistemas basados en Unix
 
 
 db = Core()
