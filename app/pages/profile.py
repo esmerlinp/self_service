@@ -2,13 +2,103 @@ import streamlit as st
 from datetime import datetime
 import pandas as pd
 import app
-
+from streamlit_avatar import avatar
+import json
     
 def formato_fecha(fecha):
     """Convierte la fecha de formato ISO a dd/mm/yyyy"""
     if fecha:
         return datetime.strptime(fecha.split("T")[0], "%Y-%m-%d").strftime("%d/%m/%Y")
     return "N/A"
+
+
+def save_cookies(cookies):
+    """Guarda las cookies en el estado de la sesión"""
+    
+    cookies.save()
+
+@st.dialog("Configuración", width="large")
+@st.fragment()
+def user_profile(cookies):
+    """Función para mostrar el perfil del usuario"""
+    # Obtener el perfil del usuario desde el estado de la sesión
+    if 'user' in st.session_state:
+        #user = st.session_state.user
+        # Mostrar el perfil del usuario
+        
+        user = st.session_state.user
+        # Mostrar la imagen del usuario
+
+        imagen = f"https://ui-avatars.com/api/?background=random&name={user['FullUserName']}=100%bold=true&background=61a1af&color=fdfdfd"
+
+        avatar(
+            [
+                {
+                    "url": imagen,
+                    "size": 100,
+                    "title": f"{user['FullUserName']}",
+                    "caption": f"{user['userId']} - {user['userEmail']}",
+                    "key": f"{user['userId']}",
+                }
+            ]
+        )
+        # Organizar los campos en dos columnas
+
+        st.text_input(label="Compañía", value=user['CompanyName'], disabled=True)
+        #st.text_input(label="Departamento", value=user['officeName'], disabled=True)
+        
+        # #opcion parta mosrar volante de pago
+        # if st.toggle("Mostrar volante de pago", value=True, key="_show_payroll"):
+        #     cookies["cookies_show_payroll"] = str(True)
+        #     st.session_state.show_payroll = True
+        #     #cookies.save()
+        # else:
+        #     cookies["cookies_show_payroll"] = str(True)
+        #     st.session_state.show_payroll = False
+        #     #cookies.save()
+           
+        
+        #opcion para mostrar volante de prestamo
+        if st.toggle("Mostrar resumen de prestamo", value=True, key="_show_loan"):
+            cookies["cookies_show_loan"] = str(True)
+            st.session_state.show_loan = True
+            #save_cookies(cookies)
+        else:
+            cookies["cookies_show_loan"] = str(True)
+            st.session_state.show_loan = False
+            #save_cookies(cookies)
+            
+        
+        #opcion para mostrar volante de ahorro
+        st.session_state.show_savings = st.toggle("Mostrar resumen de ahorro", value=True, key="_show_savings")
+        
+        # #opcion para mostrar volante  vacantes
+        # st.session_state.show_vacancies = st.toggle("Mostrar volante de vacantes", value=True, key="_show_vacancies")
+       
+        # #opcion para mostrar Cumpleaños
+        # st.session_state.show_birthdays = st.toggle("Mostrar Cumpleaños", value=True, key="_show_birthdays")
+        
+        # #opcion para mostrar promociones
+        # st.session_state.show_promotions = st.toggle("Mostrar promociones", value=True, key="_show_promotions")
+
+        st.markdown("&nbsp;")
+        # cerrar la sesión
+        if st.button("Cerrar sesión", type="primary", icon=":material/logout:"):
+            # Limpiar el estado de la sesión
+            # Redirigir a la página de inicio de sesión
+            cookies["is_auth"] = str(False)
+            del st.session_state.is_auth
+            del st.session_state.user
+            del st.session_state.employee
+            del st.session_state.token
+            del st.session_state.employeeId
+            save_cookies(cookies)
+            app.switch_page("login")
+        
+       
+
+        
+        
 
 def employee():
     """Muestra un resumen del perfil del empleado en una interfaz de Streamlit"""

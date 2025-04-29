@@ -15,13 +15,13 @@
 1. Una vez creada la imagen, ejecuta el siguiente comando para iniciar el contenedor:
 
    ```bash
-   docker run -e RRHH_BASE_URL="http://rrhh.administracionapi.camsoft.com.do:8086" -p 8501:8501 self_service
+   docker run -e COOKIES_PASSWORD="qaxriQ-kojky7-fenxeb" -e RRHH_BASE_URL="http://rrhh.administracionapi.camsoft.com.do:8086" -p 8501:8501 self_service
    ```
 
    Este comando:
    - Ejecuta el contenedor basado en la imagen `self_service`.
    - Mapea el puerto 8501 en tu máquina al puerto 8501 en el contenedor, permitiéndote acceder a la aplicación desde tu navegador.
-   - -e RRHH_BASE_URL="http://rrhh.administracionapi.camsoft.com.do:8086"  crea variable de entorno 
+   - -e COOKIES_PASSWORD="qaxriQ..."  crea variable de entorno 
 
 2. Abre tu navegador y visita [http://localhost:8501](http://localhost:8501). Deberías ver tu aplicación de Streamlit corriendo dentro de Docker.
 

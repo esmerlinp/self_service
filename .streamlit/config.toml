@@ -1,0 +1,50 @@
+[theme]
+
+# The preset Streamlit theme that your custom theme inherits from.
+# This can be one of the following: "light" or "dark".
+base = "light"
+
+# Primary accent color.
+primaryColor = "#0077B5"  # LinkedIn Blue
+
+# Background color of the app.
+backgroundColor = "#FFFFFF"  # Taupe Gray
+
+# Background color used for most interactive widgets.
+secondaryBackgroundColor = "#FFFFFF"  # Chinese Silver
+
+# Color used for almost all text.
+textColor = "#1D2226"  # Very dark gray used in LinkedIn's typography
+
+# Color used for all links.
+linkColor = "#0077B5"  # Same as primaryColor
+
+# Background color used for code blocks.
+codeBackgroundColor = "#F3F6F8"  # Light neutral tone from LinkedIn's UI
+
+# Font family
+font = "sans-serif"
+
+# The font family to use for code
+codeFont = "monospace"
+
+# The font family to use for headings.
+headingFont = "sans-serif"
+
+# Font faces (empty, as no custom fonts provided)
+fontFaces = []
+
+# Corner radius of UI elements
+baseRadius = "0.5rem"
+
+# Border color
+borderColor = "#E6E9EC"  # Light border tone used in UI dividers
+
+# Whether to show a border around input widgets.
+showWidgetBorder = true
+
+# Base font size
+baseFontSize = 16
+
+# Show vertical sidebar separator
+showSidebarBorder = true

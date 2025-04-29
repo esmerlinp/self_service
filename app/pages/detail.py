@@ -1,13 +1,13 @@
 import streamlit as st
 import app
-from app.fragments import birthdays, promotions, vacantes
+from app.fragments import birthdays, promotions
 from app.fragments import (
     resumen_prestamo,
-    vacantes,
     savings,
-    ausencias
+    ausencias,
     
 )
+from app.pages import vacantes
 
 #pagina de standard para mostrar mas detalles de todos los fragments, recibe  el fragment a mostrar  en una pagina independiente.
 
@@ -29,8 +29,6 @@ def show_fragment():
         resumen_prestamo()
     elif fragment == "resumen_ahorros": 
         savings.resumen_ahorros()
-    elif fragment == "vacantes":
-        vacantes.vacantes(all=True)
     elif fragment == "detalle_vacante":
         vacantes.detalle_vacante()
     elif fragment == "user_requests":
@@ -39,6 +37,7 @@ def show_fragment():
         birthdays.birthdays(all=True)
     elif fragment == "promos":
         promotions.promos(all=True)
+
     else:
         st.error("Fragmento no reconocido.")
         st.stop()

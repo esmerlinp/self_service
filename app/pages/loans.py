@@ -57,7 +57,8 @@ def loan_chart():
     
 def loans():
         # Botón para volver a la página principal
-    if st.button("⬅ Volver"):
+
+    if st.button(":gray[/ Inicio /] :blue[Préstamos]", type="tertiary"):
         app.switch_page("home")
         
     st.title("Seguimiento de Pago de Préstamo")

@@ -1,36 +1,77 @@
 
 import streamlit as st
 from app.util import calcular_dias_laborales
-from app.core import Core
+from app.core import get_ausencias, set_ausencia, set_documento
 import datetime
-
 import time as t
 import base64
+import pandas as pd
+from streamlit_extras.dataframe_explorer import dataframe_explorer
 
 
-db = Core()
+
+
+def verificar_conflicto_permisos(nuevo_desde, nuevo_hasta):
+    """
+    Verifica si el nuevo permiso se cruza con permisos existentes del mismo tipo.
+    
+    :param nuevo_desde: Fecha y hora de inicio del nuevo permiso.
+    :param nuevo_hasta: Fecha y hora de fin del nuevo permiso.
+    :param tipo_permiso: Tipo de permiso que se está creando.
+    :return: True si hay un cruce, False en caso contrario.
+    """
+    permisos_existentes = st.session_state.get("ausencias", [])
+    
+    for permiso in permisos_existentes:
+        if not permiso["fecha_Inicio"]:
+            continue
+        
+        
+        if permiso["codigo_Estado"] in [2, 3]:  # 2: Pendiente, 3: Autorizado
+            if not permiso["fecha_Fin"]:
+                permiso["fecha_Fin"] = permiso["fecha_Inicio"]
+                
+            permiso_desde = datetime.datetime.strptime(permiso["fecha_Inicio"], "%Y-%m-%dT%H:%M:%S")
+            permiso_hasta = datetime.datetime.strptime(permiso["fecha_Fin"], "%Y-%m-%dT%H:%M:%S")
+            
+            # Verificar si hay un cruce de fechas y horas
+            if (nuevo_desde <= permiso_hasta and nuevo_hasta >= permiso_desde):
+                return {
+                    "tipo_permiso": permiso["nombre_Tipo_Ausencia"],
+                    "fecha_desde": permiso_desde.strftime("%d/%m/%Y %H:%M"),
+                    "fecha_hasta": permiso_hasta.strftime("%d/%m/%Y %H:%M")
+                }
+
+    return False  # No hay cruce
+
+
+
 
 #DATA EXAMPLE
-    
-
-
 @st.fragment()
 @st.dialog("Solicitud de Permiso", width="large")
 def solicitar_permiso():
     reason_code = 0
     dias = 0
     cantidad = 0
-    tipos = ["Vacaciones", "Permiso hora", "Permiso día"]
+    tipos = ["Vacaciones", "Permiso hora", "Permiso día", "Excusa"]
+   
     
     tipo_permiso = st.selectbox("Tipo de Permiso", tipos)
+    
     if tipo_permiso == "Permiso hora":
         reason_code = 4
-
+        
+     
+        fecha_desde = st.date_input("Fecha", min_value="today", format="DD/MM/YYYY")
+        fecha_hasta = fecha_desde
+        
+       
+           
         desde = st.time_input("Hora desde", value=datetime.time(8, 0), step=1800)
         hasta = st.time_input("Hora hasta", value=datetime.time(17, 0), step=1800)
         
-        fecha_desde = st.date_input("Fecha", min_value="today", format="DD/MM/YYYY")
-        fecha_hasta = fecha_desde
+
         
         #calcular cantidad de horas
         if desde and hasta:
@@ -51,11 +92,24 @@ def solicitar_permiso():
         st.number_input("Cantidad horas", value=cantidad, disabled=True)
         
     else:
-        reason_code = 1 if tipo_permiso == "Vacaciones" else 3
+        #reason_code = 1 if tipo_permiso == "Vacaciones" else 3
+    
+        
+        if tipo_permiso == "Excusa":
+            reason_code = 5
+        elif tipo_permiso == "Vacaciones":
+            reason_code = 1
+        else:
+            reason_code = 3 #Permiso dia        
+            
+            
         fecha_desde = st.date_input("Fecha desde", min_value="today", format="DD/MM/YYYY", )
         fecha_hasta = st.date_input("Fecha hasta", min_value="today", format="DD/MM/YYYY",)
         
     
+        #concatenar fecha y hora
+        fecha_desde = datetime.datetime.combine(fecha_desde, datetime.time(8, 0))
+        fecha_hasta = datetime.datetime.combine(fecha_hasta, datetime.time(17, 0))
 
         #convertir feriados a arreglo de fechas ejemplo [date(2025, 4, 3), date(2025, 4, 7)]
         _feriados = st.session_state.get("feriados", [])
@@ -81,6 +135,19 @@ def solicitar_permiso():
     
     
     if st.button("Envíar"):
+        #validar que la fecha de inicio no sea mayor a la fecha de fin
+        if fecha_desde > fecha_hasta:
+            st.warning("La fecha de inicio no puede ser mayor a la fecha de fin.")
+            return
+        
+        # Verificar si hay un cruce con permisos existentes
+        conflicto = verificar_conflicto_permisos(fecha_desde, fecha_hasta)
+        if conflicto:
+            st.error(
+                f"""Permiso en conflicto: Existe un permiso de tipo '{conflicto['tipo_permiso']}' que cubre el mismo período: 
+                {conflicto['fecha_desde']} - {conflicto['fecha_hasta']}."""
+            )
+            return
         
         #ncabezado del comentario:
         encabezado =  f"Solicitud de {tipo_permiso} desde el {fecha_desde.strftime('%d/%m/%Y %H:%M')} hasta el {fecha_hasta.strftime('%d/%m/%Y %H:%M')}."
@@ -94,20 +161,24 @@ def solicitar_permiso():
         from_date = fecha_desde.strftime("%Y-%m-%dT%H:%M:%S")
         to_date = fecha_hasta.strftime("%Y-%m-%dT%H:%M:%S")
         
-        result = db.set_ausencia(from_date=from_date, to_date=to_date, comment=comment, reason_code=reason_code, cantidad=cantidad)
+        result = set_ausencia(from_date=from_date, to_date=to_date, comment=comment, reason_code=reason_code, cantidad=cantidad)
         if result:
             st.success("Solicitud enviada satisfactoriamente")
             st.balloons()
-            db.get_ausencias()
+            t.sleep(2)
+            get_ausencias()
             st.rerun(scope="app")
             return
         else:
             st.warning("La solicitud no pudo ser procesada. Intenta de nuevo o contacta a soporte.")
+            return
 
           
-@st.fragment
-def resumen_permisos():
+@st.dialog("Solicitudes", width="large")
+def resumen_permisos2():
     """Muestra las solicitudes del usuario en un diseño atractivo."""
+
+    
     with st.expander("📢 Solicitudes", expanded=True):
         if 'ausencias' in st.session_state:
             with st.container():
@@ -196,8 +267,129 @@ def resumen_permisos():
                             if st.button(":blue[Ver todas]", type="tertiary"):
                                 st.session_state.show_all_requests = True
                 else:
-                    st.info("No tienes solicitudes.")
+                    st.caption("No tienes solicitudes.")
+        else:
+            st.caption("No tienes solicitudes.")
+
+
+
+
+
+def resumen_permisos(employeeId=None):
+    """Muestra las solicitudes del usuario en un DataFrame con opciones de filtrado."""
+    solicitudes = []
+    if not employeeId:
+        # Verificar si hay solicitudes en el estado de la sesión
+        if "ausencias" not in st.session_state or not st.session_state.ausencias:
+            st.info("No tienes solicitudes registradas.")
+            return
+
+        # Obtener las solicitudes
+        
+        solicitudes = st.session_state.ausencias
+    else:
+        solicitudes = get_ausencias()
+    
+    # Crear una lista de diccionarios con los datos formateados
+    data = []
+    for req in solicitudes:
+        
+        
+        if not req['fecha_Inicio']:
+            continue
+           
+           
+        if not req['fecha_Fin']:
+            req['fecha_Fin'] = req['fecha_Inicio'] 
+            
+        try:
+            fecha_registro = datetime.datetime.strptime(req['fecha_Registro'], "%Y-%m-%dT%H:%M:%S").strftime("%d/%m/%Y %H:%M")
+        except ValueError:
+            fecha_registro = req['fecha_Registro']  # Usar la fecha original si hay un error
+
+
   
+
+        fecha_inicio = datetime.datetime.strptime(req['fecha_Inicio'], "%Y-%m-%dT%H:%M:%S").strftime("%d/%m/%Y")
+        fecha_fin = datetime.datetime.strptime(req['fecha_Fin'], "%Y-%m-%dT%H:%M:%S").strftime("%d/%m/%Y")
+        estado = "Pendiente" if req['codigo_Estado'] == 2 else "Autorizada" if req['codigo_Estado'] == 3 else "Rechazada"
+        tipo_cantidad = "días" if req['tipo_Ausencia'] != 4 else "horas"
+
+        data.append({
+            "Tipo de Permiso": req['nombre_Tipo_Ausencia'],
+            "Fecha Registro": fecha_registro,
+            "Desde": fecha_inicio,
+            "Hasta": fecha_fin,
+            "Cantidad": f"{req['cantidad']} {tipo_cantidad}",
+            "Estado": estado
+        })
+    with st.expander("Historial Solicitudes", expanded=False):       
+        # Crear un DataFrame con los datos
+        df = pd.DataFrame(data)
+        df_filtered = dataframe_explorer(df, case=False)
+        st.dataframe(df_filtered, use_container_width=True)
+
+
+@st.dialog("Solicitudes", width="large")
+def resumen_permisos_dialog(employeeId=None):
+    """Muestra las solicitudes del usuario en un DataFrame con opciones de filtrado."""
+    solicitudes = []
+    if not employeeId:
+        # Verificar si hay solicitudes en el estado de la sesión
+        if "ausencias" not in st.session_state or not st.session_state.ausencias:
+            st.info("No tienes solicitudes registradas.")
+            return
+
+        # Obtener las solicitudes
+        
+        solicitudes = st.session_state.ausencias
+    else:
+        solicitudes = get_ausencias()
+    
+    # Crear una lista de diccionarios con los datos formateados
+    data = []
+    for req in solicitudes:
+        
+        
+        if not req['fecha_Inicio']:
+            continue
+           
+           
+        if not req['fecha_Fin']:
+            req['fecha_Fin'] = req['fecha_Inicio'] 
+            
+        try:
+            fecha_registro = datetime.datetime.strptime(req['fecha_Registro'], "%Y-%m-%dT%H:%M:%S").strftime("%d/%m/%Y %H:%M")
+        except ValueError:
+            fecha_registro = req['fecha_Registro']  # Usar la fecha original si hay un error
+
+
+  
+
+        fecha_inicio = datetime.datetime.strptime(req['fecha_Inicio'], "%Y-%m-%dT%H:%M:%S").strftime("%d/%m/%Y")
+        fecha_fin = datetime.datetime.strptime(req['fecha_Fin'], "%Y-%m-%dT%H:%M:%S").strftime("%d/%m/%Y")
+        estado = "Pendiente" if req['codigo_Estado'] == 2 else "Autorizada" if req['codigo_Estado'] == 3 else "Rechazada"
+        tipo_cantidad = "días" if req['tipo_Ausencia'] != 4 else "horas"
+
+        data.append({
+            "Tipo de Permiso": req['nombre_Tipo_Ausencia'],
+            "Fecha Registro": fecha_registro,
+            "Desde": fecha_inicio,
+            "Hasta": fecha_fin,
+            "Cantidad": f"{req['cantidad']} {tipo_cantidad}",
+            "Estado": estado
+        })
+
+    # Mostrar el DataFrame con un explorador de datos
+    st.markdown("### 📋 Historial de Solicitudes")
+    
+    # Crear un DataFrame con los datos
+    df = pd.DataFrame(data)
+    df_filtered = dataframe_explorer(df, case=False)
+    
+
+    st.dataframe(df_filtered, use_container_width=True)
+
 
 
 @st.fragment
@@ -209,9 +401,13 @@ def solicitar_licencia_medica():
     desde = st.date_input("Fecha desde", min_value="today", format="DD/MM/YYYY", value="today")
     hasta = st.date_input("Fecha hasta", min_value="today", format="DD/MM/YYYY", value="today")
     dias = 0
+    
+    #concatenar fecha y hora
+    desde = datetime.datetime.combine(desde, datetime.time(8, 0))
+    hasta = datetime.datetime.combine(hasta, datetime.time(17, 0))
+        
     if hasta:
         # Horario de trabajo del empleado (Ejemplo: Lunes a Viernes de 08:00 a 17:00)
-
         dias = calcular_dias_laborales(
                     fecha_inicio=desde,
                     fecha_fin=hasta,
@@ -226,7 +422,18 @@ def solicitar_licencia_medica():
     st.caption("⚠️ Esta solicitud está sujeta a aprobación previa por parte de Recursos Humanos.")
     
     if st.button("Envíar"):
+        # Validar que la fecha de inicio no sea mayor a la fecha de fin
+        if desde > hasta:
+            st.warning("La fecha de inicio no puede ser mayor a la fecha de fin.")
+            return
         
+        conflicto = verificar_conflicto_permisos(desde, hasta)
+        if conflicto:
+            st.error(
+                f"""Permiso en conflicto: Existe un permiso de tipo '{conflicto['tipo_permiso']}' que cubre el mismo período: 
+                {conflicto['fecha_desde']} - {conflicto['fecha_hasta']}."""
+            )
+            return
                 
         #ncabezado del comentario:
         encabezado =  f"Solicitud de {tipo_licencia} desde el {desde.strftime('%d/%m/%Y %H:%M')} hasta el {desde.strftime('%d/%m/%Y %H:%M')}."
@@ -239,12 +446,12 @@ def solicitar_licencia_medica():
             
         from_date = desde.strftime("%Y-%m-%dT%H:%M:%S")
         to_date = hasta.strftime("%Y-%m-%dT%H:%M:%S")
-        result = db.set_ausencia(from_date=from_date, to_date=to_date, comment=comment, reason_code=2, cantidad=dias)
+        result = set_ausencia(from_date=from_date, to_date=to_date, comment=comment, reason_code=2, cantidad=dias)
         
         if result:
             result = result[0]
            
-            last_create = db.get_ausencias()
+            last_create = get_ausencias()
             if uploaded_files:
                 
                 for uploaded_file in uploaded_files:
@@ -255,22 +462,26 @@ def solicitar_licencia_medica():
                     file_base64 = base64.b64encode(file_content).decode("utf-8")
                     
                     
-                    respuesta = db.set_documento(id_transaccion=last_create[0]["id"], 
+                    respuesta = set_documento(id_transaccion=last_create[0]["id"], 
                                  archivoInBase64=file_base64,
                                  nombre_archivo=uploaded_file.name,
                                  extension=uploaded_file.type,
-                                 fecha_creacion=datetime.datetime.now().strftime("%d/%m/%Y"),
+                                 fecha_creacion=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
                                  )
                     if not respuesta:
                         st.warning("La solicitud fue enviada pero el documento no pudo ser procesado. Intenta de nuevo o contacta a soporte.")
+                        if st.button(label="ok", type="primary"):
+                            get_ausencias()
+                            st.rerun(scope="app")
+                            return
+                    else:
+                        st.success("Solicitud enviada satisfactoriamente")
+                        st.balloons()
+                        t.sleep(2)
+                        get_ausencias()
+                        st.rerun(scope="app")
+                        return
                        
-            
-                
-            st.success("Solicitud enviada satisfactoriamente")
-            st.snow()
-            t.sleep(2)
-            st.rerun(scope="app")
-            return
         else:
             st.warning("La solicitud no pudo ser procesada. Intenta de nuevo o contacta a soporte.")
             
@@ -284,10 +495,10 @@ def resumen_vacaciones():
 
     # Verificar si el JSON de vacaciones está en el session_state
     if "vacaciones" not in st.session_state:
-        with st.expander("✈️ Resumen de Vacaciones", expanded=False):
+        with st.expander(":material/travel: Resumen de Vacaciones", expanded=False):
             
             st.caption("No has tomado vacaciones en el año")
-            if st.button(":blue[Solicitar vacaciones]", type="tertiary", icon="✈️"):
+            if st.button(":blue[Solicitar vacaciones]", type="tertiary", icon=":material/travel:"):
                 solicitar_permiso()
             
         return
@@ -318,8 +529,7 @@ def resumen_vacaciones():
     ano_actual = datetime.datetime.now().year
 
     # Mostrar el resumen
-    with st.expander("📅 Resumen de Vacaciones", expanded=True):
-        st.markdown("### 🏖️ Resumen de Vacaciones")
+    with st.expander(":material/travel: Resumen de Vacaciones", expanded=False):
         
         # Mostrar progreso de días tomados y restantes
         porcentaje_tomado = (dias_tomados_totales / (DIAS_POR_ANO * len(dias_tomados_por_ano))) * 100
@@ -328,10 +538,10 @@ def resumen_vacaciones():
         if ano_actual not in dias_tomados_por_ano:
             st.info(f"No has tomado vacaciones en el año {ano_actual}.")
         
-        col1, _ ,col3 =   st.columns([3,2,2]) 
+        # col1, col3 =   st.columns(2) 
         
-        col1.badge(f"Días tomados: {dias_tomados_totales}", color="red")
-        col3.badge(f"Total: {dias_restantes_totales + dias_tomados_totales}", color="gray")
+        st.badge(f"Días tomados: {dias_tomados_totales}", color="red")
+        # col3.badge(f"Total: {dias_restantes_totales + dias_tomados_totales}", color="gray")
         st.progress(int(porcentaje_tomado), text=f":green[Restantes: {dias_restantes_totales}]")
 
 

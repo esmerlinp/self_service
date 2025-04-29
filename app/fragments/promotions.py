@@ -3,16 +3,15 @@ import datetime
 from streamlit_avatar import avatar
 from bs4 import BeautifulSoup
 import app
-from app.core import Core
+from app.core import get_comentarios, set_comentario, delete_comentario
 
-db = Core()
 
 @st.fragment
 def promos(all=False):
     """Muestra las promociones recientes con opciones de interacción."""
     
     if not 'promotions' in st.session_state or not st.session_state.promotions:
-        with st.expander("🎉 Promociones Recientes", expanded=True):
+        with st.expander("🎓 Promociones Recientes", expanded=True):
             st.caption("Sin promociones recientes")
             return
     
@@ -32,8 +31,9 @@ def promos(all=False):
     else:
         promociones = promociones[:2]
 
+    expanded = len(promociones) > 0
     # Mostrar las promociones
-    with st.expander("🎉 Promociones Recientes", expanded=True):
+    with st.expander("🎓 Promociones Recientes", expanded=expanded):
         col1, _, col2 = st.columns([3, 2, 1])
         col1.markdown("### 🏆 Celebraciones de Promociones")
         if col2.button(":blue[Ver todas]", type="tertiary", help="Ver todas las promociones", use_container_width=True, disabled=all):
@@ -67,13 +67,13 @@ def promos(all=False):
                             <div style="border: 0px solid #ddd; border-radius: 12px; padding: 10px; margin-bottom: 10px; 
                                         background-image: url('{background_url}'); 
                                         background-size: cover; background-position: center; text-align: center;">
-                                <div style="margin-bottom: 10px;">
+                                <div style="margin-bottom: 5px;">
                                     <img src="{imagen}" alt="Foto de {promo['nombreEmpleado']}" 
                                         style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; background-color: #fff; padding: 5px;">
                                 </div>
                                 <p style="margin: 0; font-size: 20px; font-weight: bold; color: #333;">{promo['nombreEmpleado']}</p>
                                 <p style="margin: 0; font-size: 14px; color: #555;">📅 {datetime.datetime.strptime(promo['fechaPromocion'], '%Y-%m-%dT%H:%M:%S').strftime('%d/%m/%Y')}</p>
-                                <p style="margin: 0; font-size: 16px; font-weight: bold; color: #555;">💼 {promo['puestoAnterior']} → {promo['puestoNuevo']}</p>
+                                <p style="margin: 0; font-size: 14px; font-weight: bold; color: #555;">💼 {promo['puestoNuevo']}</p>
                                 <p style="margin: 0; font-size: 12px; color: #888;">{promo['descripcionPuesto']}</p>
                             </div>
                             """,
@@ -82,7 +82,7 @@ def promos(all=False):
 
                         # No muestra los comentarios si no hay cumpleaños el dia de hoy
                         st.markdown("**Comentarios**")    
-                        comentarios = db.get_comentarios(idEmpleado=promo['codigo'], entidad="Promociones")
+                        comentarios = get_comentarios(idEmpleado=promo['codigo'], entidad="Promociones")
                         comentarios_view_card_promocion(comentarios, promo)
         else:
             st.info("No hay promociones recientes.")
@@ -112,7 +112,7 @@ def modal_detalle_promocion(promocion):
     # Mostrar comentarios
     st.markdown("### 💬 Comentarios")
 
-    comentarios = db.get_comentarios(idEmpleado=promocion['codigo'], entidad="Promociones")
+    comentarios = get_comentarios(idEmpleado=promocion['codigo'], entidad="Promociones")
     if 'comentarios_promocion' not in st.session_state:
         st.session_state.comentarios_promocion = comentarios
     comentarios_view_detail_promocion(comentarios, promocion)
@@ -160,7 +160,7 @@ def comentarios_view_card_promocion(comentarios, promocion):
             elif selection == "🎉":
                 e = st.session_state.employee
                 nuevo_comentario = f"🎉 {e['nombreCompletoEmpleado']} felicita a {promocion['nombreEmpleado']} por su promoción. ¡Enhorabuena! 🎉"
-                response = db.set_comentario(id_empleado_festejado=promocion['codigo'], contenido=nuevo_comentario, entidad="Promociones")
+                response = set_comentario(id_empleado_festejado=promocion['codigo'], contenido=nuevo_comentario, entidad="Promociones")
                 if response:
                     st.balloons()
                     st.rerun()
@@ -185,7 +185,7 @@ def comentarios_view_detail_promocion(comentarios, promocion):
     if st.button("Publicar", icon=":material/send:", key=f"enviar_comentario_promocion_{promocion['codigo']}"):
         if nuevo_comentario.strip():
             with st.spinner("Publicando comentario..."):
-                response = db.set_comentario(id_empleado_festejado=promocion['codigo'], contenido=nuevo_comentario, entidad="Promociones")
+                response = set_comentario(id_empleado_festejado=promocion['codigo'], contenido=nuevo_comentario, entidad="Promociones")
                 if response:
                     st.rerun(scope="app")
         else:
@@ -221,15 +221,15 @@ def comentarios_view_detail_promocion(comentarios, promocion):
                     )
                 
                 with col2:
-                    if comentario['id_Usuario'] == st.session_state.user['id']:
+                    if comentario['id_Usuario'] == st.session_state.user['userId']:
                         if st.button("🗑️", key=f"eliminar_comentario_promocion_{promocion['codigo']}_{comentario['id']}"):
-                            response = db.delete_comentario(id_comentario=comentario['id'])
+                            response = delete_comentario(id_comentario=comentario['id'])
                             if response:
                                 # Remover el comentario de la lista
                                 comentarios.remove(comentario)
                                 # Actualizar el estado de los comentarios
                                 st.session_state.comentarios_promocion = comentarios
                                 st.rerun(scope="app")
-\
+
         else:
             st.info("No hay comentarios para esta promoción.")

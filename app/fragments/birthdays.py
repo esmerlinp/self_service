@@ -2,12 +2,12 @@ import streamlit as st
 import datetime
 from streamlit_avatar import avatar
 from bs4 import BeautifulSoup
-from app.core import Core
+from app.core import get_comentarios, set_comentario, delete_comentario
 import app
 
 
 
-db = Core()
+
 
 @st.fragment
 def birthdays(all=False):
@@ -22,16 +22,16 @@ def birthdays(all=False):
         # Obtener la fecha actual
         hoy = datetime.datetime.today()
 
-
-        
         if not all:
             #busco los cumpleaños de hoy
+            print("Eventos de hoy", eventos)
             eventos_filtrados = [
                 evento for evento in eventos
                 if (hoy.month == datetime.datetime.strptime(evento["fechaCumpleanios"], "%Y-%m-%dT%H:%M:%S").month and
                     datetime.datetime.strptime(evento["fechaCumpleanios"], "%Y-%m-%dT%H:%M:%S").day == hoy.day)
             ]
             
+
             #sino hay cumpleaños de hoy busco los próximos
             if not eventos_filtrados:
                 eventos_filtrados = [
@@ -83,11 +83,11 @@ def birthdays(all=False):
                         imagen = evento['imagenEmpleado']
                         if not imagen:
                             nombres = evento["nombre"].split(" ")
-                            if len(nombres) >= cant_columnas:
+                            if len(nombres) >= 3:
                                 imagen = f"https://ui-avatars.com/api/?name={nombres[0]}+{nombres[2]}=100"
                             else:
                                 imagen = f"https://ui-avatars.com/api/?background=random&name={nombres[0]}+{nombres[1]}=100%bold=true"  
-
+                        
                         # Validar si la fecha del evento es igual a la fecha actual
                         if fecha_evento.date().day == hoy.date().day:
                             background_url = "https://png.pngtree.com/background/20210711/original/pngtree-birthday-confetti-balloon-vector-background-picture-image_1150107.jpg"
@@ -117,7 +117,7 @@ def birthdays(all=False):
                             # No muestra los comentarios si no hay cumpleaños el dia de hoy
                             if not st.session_state.proximos:
                                 st.markdown("**Comentarios**")    
-                                comentarios = db.get_comentarios(idEmpleado=evento['idEmpleado'], entidad="Cumpleanios")
+                                comentarios = get_comentarios(idEmpleado=evento['idEmpleado'], entidad="Cumpleanios")
                                
 
                                 comentarios_view_card(comentarios, evento)
@@ -157,7 +157,7 @@ def modal_detalle_cumpleanios(evento):
     st.markdown("### 💬 Comentarios")
 
     
-    comentarios = db.get_comentarios(idEmpleado=evento['idEmpleado'], entidad="Cumpleanios")
+    comentarios = get_comentarios(idEmpleado=evento['idEmpleado'], entidad="Cumpleanios")
     if 'comentarios' not in st.session_state:
         st.session_state.comentarios = comentarios
     comentarios_view_detail(comentarios, evento)
@@ -207,7 +207,7 @@ def comentarios_view_card(comentarios, evento):
             elif selection == "🎉":
                 e = st.session_state.employee
                 nuevo_comentario = f"🎉 {e['nombreCompletoEmpleado']} te envía sus mejores deseos en tu cumpleaños. ¡Que tengas un día increíble! 🎂"
-                response = db.set_comentario(id_empleado_festejado=evento['idEmpleado'], contenido=nuevo_comentario, entidad="Cumpleanios")
+                response = set_comentario(id_empleado_festejado=evento['idEmpleado'], contenido=nuevo_comentario, entidad="Cumpleanios")
                 if response:
                     st.balloons()
                 else:
@@ -236,7 +236,7 @@ def comentarios_view_detail(comentarios, evento):
     nuevo_comentario = st.text_area("Agregar un nuevo comentario", key=f"nuevo_comentario_{evento['idEmpleado']}", max_chars=200, placeholder="Escribe tu comentario aquí...")
     if st.button("Publicar", icon=":material/send:", key=f"enviar_comentario_{evento['idEmpleado']}"):
         if nuevo_comentario.strip():
-            response = db.set_comentario(id_empleado_festejado=evento['idEmpleado'], contenido=nuevo_comentario, entidad="Cumpleanios")
+            response = set_comentario(id_empleado_festejado=evento['idEmpleado'], contenido=nuevo_comentario, entidad="Cumpleanios")
             if response:
                 st.rerun(scope="app")
         else:
@@ -274,15 +274,15 @@ def comentarios_view_detail(comentarios, evento):
                     )
                 
                 with col2:
-                    if comentario['id_Usuario'] == st.session_state.user['id']:
+                    if comentario['id_Usuario'] == st.session_state.user['userId']:
                         if st.button("🗑️", key=f"eliminar_comentario_{evento['idEmpleado']}_{comentario['id']}"):
-                            response = db.delete_comentario(id_comentario=comentario['id'])
+                            response = delete_comentario(id_comentario=comentario['id'])
                             if response:
                                 #remover el comentario de la lista
                                 comentarios.remove(comentario)
                                 # Actualizar el estado de los comentarios
                                 st.session_state.comentarios = comentarios
-                                st.rerun(scope="app")
+                                st.rerun(scope="fragment")
         else:
             st.info("No hay comentarios para este cumpleaños.")
 

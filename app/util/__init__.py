@@ -1,21 +1,89 @@
-from datetime import date, timedelta, time
-from datetime import datetime
+from datetime import date, timedelta, datetime
 from io import BytesIO
 from PIL import Image
 import pytz, os, base64
-#import jwt
+import jwt
 import uuid
 import re, json
 import streamlit as st
-from datetime import date, timedelta, time
-from typing import Dict, Tuple
 from babel.dates import format_date
 from fpdf import FPDF
-import io
+from app.models.user_model import UserModel
+import requests
 
+
+
+def get_base64_image(path):
+    with open(path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
+  
+  
+  
+  
+  
+def parse_fecha(fecha_str):
+    """Intenta analizar una fecha en diferentes formatos."""
+    formatos = ["%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"]
+    for formato in formatos:
+        try:
+            return datetime.strptime(fecha_str, formato)
+        except ValueError:
+            continue
+        
+    raise ValueError(f"No se pudo analizar la fecha: {fecha_str}")
+
+    
+def load_image_via_proxy(url):
+    """
+    Carga una imagen desde una URL a través de un proxy y la devuelve como un objeto PIL Image.
+    Este método evita que el navegador bloquee la imagen porque la imagen es servida como parte del contenido https de Streamlit.
+    """
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return Image.open(BytesIO(response.content))
+    except Exception as e:
+        return None
+
+    
+
+
+
+
+def tiempo_transcurrido(fecha) -> str:
+    """
+    Valida cuánto tiempo ha pasado desde la fecha dada y retorna un texto descriptivo
+    con el tiempo transcurrido en formato numérico (ej. "Hace 1 minuto", "Hace 2 horas", "Hace 3 días").
+    
+    Args:
+        fecha (datetime): La fecha a validar.
+    
+    Returns:
+        str: Texto descriptivo con el tiempo transcurrido.
+    """
+    ahora = datetime.now()
+    diferencia = ahora - fecha
+
+    if diferencia < timedelta(minutes=1):
+        return "Hace menos de un minuto"
+    elif diferencia < timedelta(hours=1):
+        minutos = diferencia.seconds // 60
+        return f"Hace {minutos} minuto{'s' if minutos > 1 else ''}"
+    elif diferencia < timedelta(days=1):
+        horas = diferencia.seconds // 3600
+        return f"Hace {horas} hora{'s' if horas > 1 else ''}"
+    elif diferencia < timedelta(days=2):
+        return "Hace 1 día"
+    elif diferencia < timedelta(days=5):
+        dias = diferencia.days
+        return f"Hace {dias} día{'s' if dias > 1 else ''}"
+    else:
+        # Retornar la fecha formateada si han pasado más de 5 días
+        return fecha.strftime("%d-%m-%Y")
+    
 
 @st.dialog("Notificaciones", width="small")
-def show_alert(title, message, additional_info=None):
+def show_alert(title, message, additional_info=None, ):
     """Muestra las notificaciones del usuario en un diseño atractivo."""
     # Mostrar cada notificación con un diseño atractivo
     st.subheader(title)
@@ -399,22 +467,32 @@ def base64_to_file_content(base64_string: str, output_file: str) -> bytes:
 
 
 
-# def jwt_decode(token):
-#     # Decodificar el token
-#     try:
-#         X = "X" * 34
-#         A = "A" * 33
-#         B = "B" * 4
-#         C = "C" * 26
-#         decoded = jwt.decode(token, key=X + A + B + C, algorithms=["HS256"])
-#         if decoded:
-#             userdata = {"userId":decoded["UserID"], "userName": decoded["nameid"], "FullUserName": decoded["FullUserName"], "userEmail": decoded["Email"], "isadmin":decoded["isadmin"], "userCompany": decoded["CompanyId"], "CompanyName": decoded["CompanyName"], "role": decoded["role"]}
-#             return userdata
-#         return None
-#     except jwt.ExpiredSignatureError:
-#         return None
-#     except jwt.InvalidTokenError:
-#         return None
+def jwt_decode(token):
+    # Decodificar el token
+    try:
+        X = "X" * 34
+        A = "A" * 33
+        B = "B" * 4
+        C = "C" * 26
+        decoded = jwt.decode(token, key=X + A + B + C, algorithms=["HS256"])
+        if decoded:
+            
+            # user = UserModel(userId=int(decoded["UserID"]), 
+            #                 name=decoded["nameid"], 
+            #                 fullName=decoded["FullUserName"], 
+            #                 email=decoded["Email"], 
+            #                 isadmin=decoded["isadmin"], 
+            #                 companyId=int(decoded["CompanyId"]),
+            #                 companyName=decoded["CompanyName"],
+            #                 role=decoded["role"])
+            
+            userdata = {"userId":int(decoded["UserID"]), "userName": decoded["nameid"], "FullUserName": decoded["FullUserName"],
+                        "userEmail": decoded["Email"], "isadmin":decoded["isadmin"], "userCompany": int(decoded["CompanyId"]), 
+                        "CompanyName": decoded["CompanyName"], "role": decoded["role"]}
+            return userdata
+        return None
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
         
-# if __name__ == "__main__":
-#     jwt_decode("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiJlc21lcmxpbmVwIiwidW5pcXVlX25hbWUiOiJlc21lcmxpbmVwIiwicm9sZSI6IlVzZXIiLCJVc2VySUQiOiIzMjQ2IiwiRnVsbFVzZXJOYW1lIjoiRXNtZXJsaW4gUGFuaWFndWEiLCJEYXRlVXRsQWNjZXNzIjoiIiwiQ29tcGFueUlkIjoiMiIsIkNvbXBhbnlHcm91cElkIjoiMSIsIkNsaWVudElkIjoiIiwiQnJhbmNoT2ZmaWNlSWQiOiIiLCJDb21wYW55TmFtZSI6IkRyZXMuIE1hbGzDqW4gR3VlcnJhIiwiT2ZmaWNlTmFtZSI6IiIsIkVtYWlsIjoiZXNtZXJsaW5lcEBnbWFpbC5jb20iLCJpc2FkbWluIjoiVHJ1ZSIsIm5iZiI6MTcyOTYzMTYyMCwiZXhwIjoxNzMxNzkxNjIwLCJpYXQiOjE3Mjk2MzE2MjB9.6ldWOlCohhRaIjroXFd2poWzXcKia0kHrW2IH8ScV20")        
